@@ -143,6 +143,8 @@ def generate_mathml(work_dir,tsv_file,out_dir):
         else:
             with open(convertedfilepath,'r') as fh:
                 converted_document = fh.read()
+                #print(converted_document)
+                #print("----------------------------------------------------------")
             xhtml_equations = re.findall(r'(?s)\<table.*?\<\/table\>',converted_document)
         document_body = grab_body(text)
         if not document_body:
@@ -150,6 +152,9 @@ def generate_mathml(work_dir,tsv_file,out_dir):
             return "{}: Missing body".format(filename)
         tex_equations = grab_math(text)
 
+        #print(len(xhtml_equations))
+        #print(len(tex_equations))
+        #print(tex_equations)
         ## compare tex and xhtml equations
         if len(tex_equations)!=len(xhtml_equations):
             if len(xhtml_equations)!=0:
@@ -165,6 +170,7 @@ def generate_mathml(work_dir,tsv_file,out_dir):
                         fh.write(generate_sanitized_document(filename))
             return "{}: LaTeX/XHTML equation count mismatch: LaTeX - {}, XHTML - {}".format(filename, len(tex_equations), len(xhtml_equations))
         else:
+            print(type(xhtml_equations))
             mml_queue = queue.Queue()
             for i, x in enumerate(xhtml_equations):
                 tempvar = '\n'.join(re.findall(r'(?s)\<math.*?\<\/math\>',x))
@@ -201,6 +207,7 @@ def generate_mathml(work_dir,tsv_file,out_dir):
                 print('Creating JSON files...')
                 with open(outfname,'w') as fh:
                     json.dump(export_list,fh,default=JSONHandler)
+                print('JSON files created!')
             except:
                 print("{}: Equation export to JSON failed".format(outfname))
 
@@ -211,7 +218,13 @@ def generate_mathml(work_dir,tsv_file,out_dir):
     for eqid, eqtext in tsv_dict.items():
         for mml, eqtext2 in tex_dict.items():
             if(eqtext == eqtext2):
+                #print(eqid)
                 mml_dict[eqid] = mml
+                
+    #print(tsv_dict.items())
+    #for mml, eqtext2 in tex_dict.items():
+    #    if "dagger" in eqtext2:
+    #        print(eqtext2)
 
     ## write mml to tsv
     print("Writing MathML to TSV file...")
@@ -220,13 +233,15 @@ def generate_mathml(work_dir,tsv_file,out_dir):
     line_count = 0
     with open(tsv_file,mode='r',encoding='utf-8') as fg:
         for line in fg:
-            line_count += 1
             line = line.strip()
             linesplit = line.split('\t')
             if len(linesplit)==4:
                 eqid, eqtext, freq, _ = linesplit
             elif len(linesplit)==5:
                 eqid, eqtext, mml, freq, _ = linesplit
+            if "IX" in eqid:
+                continue
+            line_count += 1
             mathmlrep = mml_dict[eqid]
             ## creating mml files
             mathml_eq_file = open(os.path.join(out_dir,eqid.lower()+".mml"),'w')
@@ -234,7 +249,7 @@ def generate_mathml(work_dir,tsv_file,out_dir):
             mathml_eq_file.close()
             ## writing mml to tsv file
             mathmlrep = mask("\"" + mathmlrep + "\"")
-            outfile.write("\t".join(linesplit[0:-2])+"\t"+mathmlrep+"\t"+linesplit[-2]+"\n")
+            outfile.write("\t".join(linesplit[0:-2])+"\t"+mathmlrep+"\t"+linesplit[-2]+"\t"+linesplit[-1]+"\n")
             if (line_count%1000==0):
                 print(line_count)
     outfile.close()
@@ -284,6 +299,7 @@ def main():
     print("Initialized {} threads".format(mp.cpu_count()))
     print("Beginning processing...")
     outlist = pool.map(generate_xhtml,filelist)
+    print(outlist)
 
     tsv = True
     if(tsv):
